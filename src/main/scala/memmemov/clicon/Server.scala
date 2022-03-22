@@ -35,21 +35,17 @@ object Server extends IOApp {
       HttpRoutes.of[IO] {
         case req @ POST -> Root / "from" =>
           for {
-            _ <- IO(println("acquiring from stream..."))
             connection <- connectionRef.updateAndGet(_ => Connection(Option(req.body)))
-            _ <- IO(println(s"from stream acquired $connection"))
             result <- IO.sleep(10.second) >> Ok(req.body)
           } yield result
 
         case req @ POST -> Root / "to" =>
           for {
-            _ <- IO(println("opening to..."))
             connection <- connectionRef.get
-            _ <- IO(println(s"got connection $connection"))
-            result <- Ok(connection.from match {
-              case None => seconds.map(_ => "NOTHING ")
-              case Some(bodyStream) => bodyStream.map(_.toString)
-            })
+            result <- connection.from match {
+              case None => Ok(seconds.map(_ => "NOTHING "))
+              case Some(bodyStream) => Ok(bodyStream)
+            }
           } yield result
       }
     }
