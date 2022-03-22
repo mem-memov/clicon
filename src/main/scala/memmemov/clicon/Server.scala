@@ -28,7 +28,7 @@ object Server extends IOApp {
     case class Connection(from: Option[EntityBody[IO]])
     val connectionRefIO: IO[Ref[IO, Connection]] = Ref[IO].of(Connection(None))
 
-    def directorRoutes(connectionRef: Ref[IO, Connection]): HttpRoutes[IO] = {
+    def buildRoutes(connectionRef: Ref[IO, Connection]): HttpRoutes[IO] = {
       val dsl = Http4sDsl[IO]
       import dsl._
 
@@ -54,18 +54,18 @@ object Server extends IOApp {
       }
     }
 
-    def testCleartext(connectionRef: Ref[IO, Connection]) =
+    def buildServer(connectionRef: Ref[IO, Connection]) =
       EmberServerBuilder
         .default[IO]
         .withHttp2
         .withHost(ipv4"0.0.0.0")
         .withPort(port"8080")
-        .withHttpApp(directorRoutes(connectionRef).orNotFound)
+        .withHttpApp(buildRoutes(connectionRef).orNotFound)
         .build
   }
 
   def run(args: List[String]): IO[ExitCode] = (for {
     connectionRef <- ServerTest.connectionRefIO
-    code <- ServerTest.testCleartext(connectionRef).use(_ => IO.never).as(ExitCode.Success)
+    code <- ServerTest.buildServer(connectionRef).use(_ => IO.never).as(ExitCode.Success)
   } yield code)
 }
