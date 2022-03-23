@@ -2,3 +2,8 @@ target
 project
 .idea
 .bsp
+.metals/
+.bloop/
+.ammonite/
+metals.sbt
+.vscode

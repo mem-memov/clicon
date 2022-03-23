@@ -18,8 +18,9 @@ import org.http4s.dsl.io._
 
 import java.util.UUID
 
-object Server extends IOApp {
 
+
+object Server extends IOApp {
 
   object ServerTest {
 

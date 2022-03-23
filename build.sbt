@@ -12,4 +12,6 @@ libraryDependencies ++= Seq(
   "org.http4s"      %% "http4s-circe"        % Http4sVersion,
   "org.http4s"      %% "http4s-dsl"          % Http4sVersion,
   "io.circe"        %% "circe-generic"       % CirceVersion,
+
+  "co.fs2" %% "fs2-core" % "3.2.5"
 )
