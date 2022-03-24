@@ -6,7 +6,7 @@ import memmemov.clicon.algebra.{ContributorAlgebra, StreamAlgebra}
 
 object ContributorInterpreter:
 
-  def apply(using StreamAlgebra[OptionalByteStream]): ContributorAlgebra[Contributor] = 
+  def apply()(using StreamAlgebra[OptionalByteStream]): ContributorAlgebra[Contributor] =
     
     new ContributorAlgebra[Contributor]:
 

@@ -5,7 +5,7 @@ import memmemov.clicon.algebra.symbol.OptionalByteStream
 
 object StreamInterpreter:
 
-  def apply(): StreamAlgebra[OptionalByteStream] = 
+  def apply(): StreamAlgebra[OptionalByteStream] =
 
     new StreamAlgebra[OptionalByteStream]:
 

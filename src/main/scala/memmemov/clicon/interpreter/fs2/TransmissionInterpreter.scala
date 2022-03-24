@@ -5,16 +5,16 @@ import memmemov.clicon.algebra.symbol.{Contributor, Transmission}
 
 object TransmissionInterpreter:
 
-  def apply(): TransmissionAlgebra[Transmission] =
+  def apply()(using ContributorAlgebra[Contributor]): TransmissionAlgebra[Transmission] =
 
     new TransmissionAlgebra[Transmission]:
 
-      def transmission(initiator: Contributor, approver: Contributor): Transmission = Transmission(initiator, approver)
+      def createTransmission(initiator: Contributor, approver: Contributor): Transmission = Transmission(initiator, approver)
 
-      def plugContributor(transmissionP: Transmission, contributor: Contributor): Transmission =
-        transmissionP match
-          case Transmission(Contributor(None, None), approver) => transmission(contributor, approver)
-          case Transmission(initiator, Contributor(None, None)) => transmission(initiator, contributor)
+      def plugContributor(transmission: Transmission, contributor: Contributor): Transmission =
+        transmission match
+          case Transmission(Contributor(None, None), approver) => createTransmission(contributor, approver)
+          case Transmission(initiator, Contributor(None, None)) => createTransmission(initiator, contributor)
           case _ => ???
 
-      def unplugContributor(transmissionP: Transmission, contributor: Contributor): Transmission = ???
+      def unplugContributor(transmission: Transmission, contributor: Contributor): Transmission = ???

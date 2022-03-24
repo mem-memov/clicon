@@ -1,24 +1,27 @@
 package memmemov.clicon
 
-import cats._
-import cats.effect._
-import cats.syntax.all._
-import com.comcast.ip4s._
-import fs2._
-import org.http4s._
-import org.http4s.dsl._
+import cats.*
+import cats.effect.*
+import cats.syntax.all.*
+import com.comcast.ip4s.*
+import fs2.*
+import org.http4s.*
+import org.http4s.dsl.*
 import org.http4s.ember.server.EmberServerBuilder
-import org.http4s.implicits._
-import scala.concurrent.duration._
+import org.http4s.implicits.*
 
-import cats.effect._
+import scala.concurrent.duration.*
+import cats.effect.*
 import fs2.Stream
-import org.http4s._
-import org.http4s.dsl.io._
+import memmemov.clicon.interpreter.fs2.StreamInterpreter
+import org.http4s.*
+import org.http4s.dsl.io.*
 
 import java.util.UUID
 
-//import memmemov.clicon.transmission as TA
+import memmemov.clicon.algebra._
+import memmemov.clicon.algebra.symbol._
+import memmemov.clicon.interpreter.fs2._
 
 object Server extends IOApp {
 
@@ -65,27 +68,30 @@ object Server extends IOApp {
         .build
   }
 
-//  def emptyTransmission =
-//    i.transmission(
-//      i.contributor(
-//        i.stream(Option.empty[Stream]),
-//        i.stream(Option.empty[Stream])
-//      ),
-//      i.contributor(
-//        i.stream(Option.empty[Stream]),
-//        i.stream(Option.empty[Stream])
-//      )
-//    )
+  def emptyTransmission()(using s: StreamAlgebra[OptionalByteStream], c: ContributorAlgebra[Contributor], t: TransmissionAlgebra[Transmission]) =
+    import s._, c._, t._
+    createTransmission(
+      createContributor(
+        useStream(None),
+        useStream(None)
+      ),
+      createContributor(
+        useStream(None),
+        useStream(None)
+      )
+    )
 
   // def setContributor[T[_], Stream](transmission: T[algebra.Transmission] , contributor: T[algebra.Contributor])(using algebra: Algebra[T, Stream]): T[algebra.Transmission] = 
   //   import algebra._
   //   plugContributor(transmission, contributor)
 
-  def run(args: List[String]): IO[ExitCode] = 
-//    import memmemov.clicon.transmission.interpreter._
-//    val transmissionInterpreter = IOByteStreamInterpreter.make()
+  def run(args: List[String]): IO[ExitCode] =
+
+    given streamInterpreter: StreamAlgebra[OptionalByteStream] = StreamInterpreter()
+    given contributorInterpreter: ContributorAlgebra[Contributor] = ContributorInterpreter()
+    given transmissionInterpreter: TransmissionAlgebra[Transmission] = TransmissionInterpreter()
     for {
-//      emptyTransmission <- emptyTransmission[IO, Stream[IO, Byte]](transmissionInterpreter)
+//      emptyTransmission <- emptyTransmission()
 //      transmissionRef <- Ref[IO].of(emptyTransmission)
       connectionRef <- ServerTest.connectionRefIO
       code <- ServerTest.buildServer(connectionRef/*, transmissionRef */).use(_ => IO.never).as(ExitCode.Success)
