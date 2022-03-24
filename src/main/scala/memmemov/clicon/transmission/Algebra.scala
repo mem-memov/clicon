@@ -1,14 +1,13 @@
 package memmemov.clicon.transmission
 
-trait Algebra[T[_]]:
+trait Algebra[T[_], Stream]:
 
-  type Stream
   type Contributor
   type Transmission
 
-  def stream(stream: Stream): T[Stream]
+  def stream(stream: Option[Stream]): T[Option[Stream]]
 
-  def contributor(input: T[Stream], output: T[Stream]): T[Contributor]
+  def contributor(input: T[Option[Stream]], output: T[Option[Stream]]): T[Contributor]
 
   def transmission(initiator: T[Contributor], approver: T[Contributor]): T[Transmission]
 

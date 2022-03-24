@@ -18,7 +18,8 @@ import org.http4s.dsl.io._
 
 import java.util.UUID
 
-
+import memmemov.clicon.transmission.Algebra
+import memmemov.clicon.transmission.AlgebraIO.given
 
 object Server extends IOApp {
 
@@ -61,7 +62,21 @@ object Server extends IOApp {
         .build
   }
 
+  def emptyTransmission[T[_], Stream](using algebra: Algebra[T, Stream]): T[algebra.Transmission] = 
+    import algebra._
+    transmission(
+      contributor(
+        stream(Option.empty[Stream]), 
+        stream(Option.empty[Stream])
+      ), 
+      contributor(
+        stream(Option.empty[Stream]), 
+        stream(Option.empty[Stream])
+      )
+    )
+
   def run(args: List[String]): IO[ExitCode] = (for {
+    transmissionRef <- Ref[IO].of(emptyTransmission[IO, Stream[IO, Byte]])
     connectionRef <- ServerTest.connectionRefIO
     code <- ServerTest.buildServer(connectionRef).use(_ => IO.never).as(ExitCode.Success)
   } yield code)
