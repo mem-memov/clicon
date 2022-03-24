@@ -18,8 +18,7 @@ import org.http4s.dsl.io._
 
 import java.util.UUID
 
-import memmemov.clicon.transmission.Algebra
-import memmemov.clicon.transmission.AlgebraIO.given
+//import memmemov.clicon.transmission as TA
 
 object Server extends IOApp {
 
@@ -30,13 +29,17 @@ object Server extends IOApp {
     case class Connection(from: Option[EntityBody[IO]])
     val connectionRefIO: IO[Ref[IO, Connection]] = Ref[IO].of(Connection(None))
 
-    def buildRoutes(connectionRef: Ref[IO, Connection]): HttpRoutes[IO] = {
+    def buildRoutes(
+      connectionRef: Ref[IO, Connection], 
+      // transmissionRef: Ref[IO, TA.Transmission]
+    ): HttpRoutes[IO] = {
       val dsl = Http4sDsl[IO]
       import dsl._
 
       HttpRoutes.of[IO] {
         case req @ POST -> Root / "from" =>
           for {
+//            _ <- transmissionRef.update(transmission => transmission)
             connection <- connectionRef.updateAndGet(_ => Connection(Option(req.body)))
             result <- IO.sleep(10.second) >> Ok(req.body)
           } yield result
@@ -52,32 +55,39 @@ object Server extends IOApp {
       }
     }
 
-    def buildServer(connectionRef: Ref[IO, Connection]) =
+    def buildServer(connectionRef: Ref[IO, Connection]/*, transmissionRef: Ref[IO, TA.Transmission]*/) =
       EmberServerBuilder
         .default[IO]
         .withHttp2
         .withHost(ipv4"0.0.0.0")
         .withPort(port"8080")
-        .withHttpApp(buildRoutes(connectionRef).orNotFound)
+        .withHttpApp(buildRoutes(connectionRef/*, transmissionRef*/).orNotFound)
         .build
   }
 
-  def emptyTransmission[T[_], Stream](using algebra: Algebra[T, Stream]): T[algebra.Transmission] = 
-    import algebra._
-    transmission(
-      contributor(
-        stream(Option.empty[Stream]), 
-        stream(Option.empty[Stream])
-      ), 
-      contributor(
-        stream(Option.empty[Stream]), 
-        stream(Option.empty[Stream])
-      )
-    )
+//  def emptyTransmission =
+//    i.transmission(
+//      i.contributor(
+//        i.stream(Option.empty[Stream]),
+//        i.stream(Option.empty[Stream])
+//      ),
+//      i.contributor(
+//        i.stream(Option.empty[Stream]),
+//        i.stream(Option.empty[Stream])
+//      )
+//    )
 
-  def run(args: List[String]): IO[ExitCode] = (for {
-    transmissionRef <- Ref[IO].of(emptyTransmission[IO, Stream[IO, Byte]])
-    connectionRef <- ServerTest.connectionRefIO
-    code <- ServerTest.buildServer(connectionRef).use(_ => IO.never).as(ExitCode.Success)
-  } yield code)
+  // def setContributor[T[_], Stream](transmission: T[algebra.Transmission] , contributor: T[algebra.Contributor])(using algebra: Algebra[T, Stream]): T[algebra.Transmission] = 
+  //   import algebra._
+  //   plugContributor(transmission, contributor)
+
+  def run(args: List[String]): IO[ExitCode] = 
+//    import memmemov.clicon.transmission.interpreter._
+//    val transmissionInterpreter = IOByteStreamInterpreter.make()
+    for {
+//      emptyTransmission <- emptyTransmission[IO, Stream[IO, Byte]](transmissionInterpreter)
+//      transmissionRef <- Ref[IO].of(emptyTransmission)
+      connectionRef <- ServerTest.connectionRefIO
+      code <- ServerTest.buildServer(connectionRef/*, transmissionRef */).use(_ => IO.never).as(ExitCode.Success)
+    } yield code
 }
