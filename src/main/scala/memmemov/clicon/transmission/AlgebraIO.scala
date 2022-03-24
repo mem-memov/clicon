@@ -2,8 +2,6 @@ package memmemov.clicon.transmission
 
 import memmemov.clicon.transmission.Algebra
 import cats.effect.IO
-import cats.Monad
-import fs2.Stream as Fs2Stream
 
 object AlgebraIO:
   
