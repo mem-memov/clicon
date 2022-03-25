@@ -1,11 +1,9 @@
 package memmemov.clicon.algebra
 
-import memmemov.clicon.algebra.symbol.Contributor
+trait TransmissionAlgebra[F[_], Transmission, Contributor]:
 
-trait TransmissionAlgebra[T]:
+  def createTransmission(): F[Transmission]
 
-  def createTransmission(initiator: Contributor, approver: Contributor): T
-
-  def plugContributor(transmission: T, contributor: Contributor): T
+  def plugContributor(transmission: Transmission, contributor: Contributor): F[Transmission]
   
-  def unplugContributor(transmission: T, contributor: Contributor): T
+  def unplugContributor(transmission: Transmission, contributor: Contributor): F[Transmission]

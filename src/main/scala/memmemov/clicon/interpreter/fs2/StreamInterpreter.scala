@@ -1,14 +1,16 @@
 package memmemov.clicon.interpreter.fs2
 
 import memmemov.clicon.algebra.StreamAlgebra
-import memmemov.clicon.algebra.symbol.OptionalByteStream
+import cats.Applicative
+import cats.syntax.applicative._
+import memmemov.clicon.interpreter.fs2.symbol.Stream
 
 object StreamInterpreter:
 
-  def apply(): StreamAlgebra[OptionalByteStream] =
+  def apply[F[_] : Applicative](): StreamAlgebra[F, Stream] =
 
-    new StreamAlgebra[OptionalByteStream]:
+    new StreamAlgebra[F, Stream]:
 
-      def useStream(stream: OptionalByteStream): OptionalByteStream =
-        stream
+      def useStream(stream: Stream): F[Stream] =
+        summon[Applicative[F]].pure(stream)
 

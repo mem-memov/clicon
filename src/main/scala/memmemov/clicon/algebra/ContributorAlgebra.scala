@@ -1,7 +1,5 @@
 package memmemov.clicon.algebra
 
-import memmemov.clicon.algebra.symbol.OptionalByteStream
+trait ContributorAlgebra[F[_], Contributor, Stream]:
 
-trait ContributorAlgebra[C]:
-
-  def createContributor(input: OptionalByteStream, output: OptionalByteStream): C
+  def createContributor(input: Stream, output: Stream): F[Contributor]

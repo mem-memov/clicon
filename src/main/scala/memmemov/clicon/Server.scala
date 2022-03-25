@@ -18,10 +18,9 @@ import org.http4s.*
 import org.http4s.dsl.io.*
 
 import java.util.UUID
-
-import memmemov.clicon.algebra._
-import memmemov.clicon.algebra.symbol._
-import memmemov.clicon.interpreter.fs2._
+import memmemov.clicon.algebra.*
+import memmemov.clicon.interpreter.fs2.*
+import memmemov.clicon.interpreter.fs2.symbol.{Contributor as ContributorSymbol, Stream as StreamSymbol, Transmission as TransmissionSymbol}
 
 object Server extends IOApp {
 
@@ -34,15 +33,26 @@ object Server extends IOApp {
 
     def buildRoutes(
       connectionRef: Ref[IO, Connection], 
-      // transmissionRef: Ref[IO, TA.Transmission]
+      transmissionRef: Ref[IO, TransmissionSymbol]
     ): HttpRoutes[IO] = {
       val dsl = Http4sDsl[IO]
       import dsl._
 
+      val streamInterpreter: StreamAlgebra[IO, StreamSymbol] = StreamInterpreter()
+      val contributorInterpreter: ContributorAlgebra[IO, ContributorSymbol, StreamSymbol] = ContributorInterpreter()
+      val transmissionInterpreter: TransmissionAlgebra[IO, TransmissionSymbol, ContributorSymbol] = TransmissionInterpreter()
+      import streamInterpreter._, contributorInterpreter._, transmissionInterpreter._
+
       HttpRoutes.of[IO] {
         case req @ POST -> Root / "from" =>
           for {
-//            _ <- transmissionRef.update(transmission => transmission)
+            t <- transmissionRef.get
+            in <- useStream(StreamSymbol(req.body))
+            out <- useStream(StreamSymbol(req.body))
+            c <- createContributor(in, out)
+            newT <- plugContributor(t, c)
+            _ <- transmissionRef.update(_ => newT)
+
             connection <- connectionRef.updateAndGet(_ => Connection(Option(req.body)))
             result <- IO.sleep(10.second) >> Ok(req.body)
           } yield result
@@ -58,42 +68,26 @@ object Server extends IOApp {
       }
     }
 
-    def buildServer(connectionRef: Ref[IO, Connection]/*, transmissionRef: Ref[IO, TA.Transmission]*/) =
+    def buildServer(connectionRef: Ref[IO, Connection], transmissionRef: Ref[IO, TransmissionSymbol]) =
       EmberServerBuilder
         .default[IO]
         .withHttp2
         .withHost(ipv4"0.0.0.0")
         .withPort(port"8080")
-        .withHttpApp(buildRoutes(connectionRef/*, transmissionRef*/).orNotFound)
+        .withHttpApp(buildRoutes(connectionRef, transmissionRef).orNotFound)
         .build
   }
 
-  def emptyTransmission()(using s: StreamAlgebra[OptionalByteStream], c: ContributorAlgebra[Contributor], t: TransmissionAlgebra[Transmission]) =
-    import s._, c._, t._
-    createTransmission(
-      createContributor(
-        useStream(None),
-        useStream(None)
-      ),
-      createContributor(
-        useStream(None),
-        useStream(None)
-      )
-    )
-
-  // def setContributor[T[_], Stream](transmission: T[algebra.Transmission] , contributor: T[algebra.Contributor])(using algebra: Algebra[T, Stream]): T[algebra.Transmission] = 
-  //   import algebra._
-  //   plugContributor(transmission, contributor)
-
   def run(args: List[String]): IO[ExitCode] =
 
-    given streamInterpreter: StreamAlgebra[OptionalByteStream] = StreamInterpreter()
-    given contributorInterpreter: ContributorAlgebra[Contributor] = ContributorInterpreter()
-    given transmissionInterpreter: TransmissionAlgebra[Transmission] = TransmissionInterpreter()
+    val streamInterpreter: StreamAlgebra[IO, StreamSymbol] = StreamInterpreter()
+    val contributorInterpreter: ContributorAlgebra[IO, ContributorSymbol, StreamSymbol] = ContributorInterpreter()
+    val transmissionInterpreter: TransmissionAlgebra[IO, TransmissionSymbol, ContributorSymbol] = TransmissionInterpreter()
+    import transmissionInterpreter._
     for {
-//      emptyTransmission <- emptyTransmission()
-//      transmissionRef <- Ref[IO].of(emptyTransmission)
+      transmission <- createTransmission()
+      transmissionRef <- Ref[IO].of(transmission)
       connectionRef <- ServerTest.connectionRefIO
-      code <- ServerTest.buildServer(connectionRef/*, transmissionRef */).use(_ => IO.never).as(ExitCode.Success)
+      code <- ServerTest.buildServer(connectionRef, transmissionRef).use(_ => IO.never).as(ExitCode.Success)
     } yield code
 }
