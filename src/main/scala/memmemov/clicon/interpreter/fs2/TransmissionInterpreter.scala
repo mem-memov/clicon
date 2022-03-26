@@ -1,23 +1,24 @@
 package memmemov.clicon.interpreter.fs2
 
 import cats.Applicative
-import memmemov.clicon.algebra.TransmissionAlgebra
-import memmemov.clicon.interpreter.fs2.symbol.{Contributor, Transmission}
+import memmemov.clicon.algebra.{ContributorAlgebra, TransmissionAlgebra}
+import memmemov.clicon.interpreter.fs2.symbol.{ContributorSymbol, TransmissionSymbol}
 
 object TransmissionInterpreter:
 
-  def apply[F[_] : Applicative](): TransmissionAlgebra[F, Transmission, Contributor] =
+  def apply(): TransmissionAlgebra[TransmissionSymbol] =
 
-    new TransmissionAlgebra[F, Transmission, Contributor]:
+    new TransmissionAlgebra[TransmissionSymbol]:
 
-      def createTransmission(): F[Transmission] =
-        summon[Applicative[F]].pure(Transmission(Option.empty, Option.empty))
+      override type Contributor = ContributorSymbol
 
-      def plugContributor(transmission: Transmission, contributor: Contributor): F[Transmission] =
-        val newTransmission = transmission match
-          case Transmission(None, approver) => Transmission(Option(contributor), approver)
-          case Transmission(initiator, None) => Transmission(initiator, Option(contributor))
+      override def createTransmission(): TransmissionSymbol =
+        TransmissionSymbol(Option.empty, Option.empty)
+
+      override def plugContributor(transmission: TransmissionSymbol, contributor: ContributorSymbol): TransmissionSymbol =
+        transmission match
+          case TransmissionSymbol(None, approver) => TransmissionSymbol(Option(contributor), approver)
+          case TransmissionSymbol(initiator, None) => TransmissionSymbol(initiator, Option(contributor))
           case _ => ???
-        summon[Applicative[F]].pure(newTransmission)
 
-      def unplugContributor(transmission: Transmission, contributor: Contributor): F[Transmission] = ???
+      override def unplugContributor(transmission: TransmissionSymbol, contributor: ContributorSymbol): TransmissionSymbol = ???

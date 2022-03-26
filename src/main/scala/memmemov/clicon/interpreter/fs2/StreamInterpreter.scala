@@ -3,14 +3,16 @@ package memmemov.clicon.interpreter.fs2
 import memmemov.clicon.algebra.StreamAlgebra
 import cats.Applicative
 import cats.syntax.applicative._
-import memmemov.clicon.interpreter.fs2.symbol.Stream
+
+import cats.effect.IO
+import fs2.Stream as Fs2Stream
 
 object StreamInterpreter:
 
-  def apply[F[_] : Applicative](): StreamAlgebra[F, Stream] =
+  def apply(): StreamAlgebra[Fs2Stream[IO, Byte]] =
 
-    new StreamAlgebra[F, Stream]:
+    new StreamAlgebra[Fs2Stream[IO, Byte]]:
 
-      def useStream(stream: Stream): F[Stream] =
-        summon[Applicative[F]].pure(stream)
+      override def useStream(stream: Fs2Stream[IO, Byte]): Fs2Stream[IO, Byte] =
+        stream
 

@@ -13,14 +13,13 @@ import org.http4s.implicits.*
 import scala.concurrent.duration.*
 import cats.effect.*
 import fs2.Stream
-import memmemov.clicon.interpreter.fs2.StreamInterpreter
 import org.http4s.*
 import org.http4s.dsl.io.*
 
 import java.util.UUID
 import memmemov.clicon.algebra.*
 import memmemov.clicon.interpreter.fs2.*
-import memmemov.clicon.interpreter.fs2.symbol.{Contributor as ContributorSymbol, Stream as StreamSymbol, Transmission as TransmissionSymbol}
+import memmemov.clicon.interpreter.fs2.symbol.{ContributorSymbol as ContributorSymbol, TransmissionSymbol as TransmissionSymbol}
 
 object Server extends IOApp {
 
@@ -38,20 +37,20 @@ object Server extends IOApp {
       val dsl = Http4sDsl[IO]
       import dsl._
 
-      val streamInterpreter: StreamAlgebra[IO, StreamSymbol] = StreamInterpreter()
-      val contributorInterpreter: ContributorAlgebra[IO, ContributorSymbol, StreamSymbol] = ContributorInterpreter()
-      val transmissionInterpreter: TransmissionAlgebra[IO, TransmissionSymbol, ContributorSymbol] = TransmissionInterpreter()
+      given streamInterpreter: StreamAlgebra[Stream[IO, Byte]] = StreamInterpreter()
+      given contributorInterpreter: ContributorAlgebra[ContributorSymbol] = ContributorInterpreter()
+      given transmissionInterpreter: TransmissionAlgebra[TransmissionSymbol] = TransmissionInterpreter()
       import streamInterpreter._, contributorInterpreter._, transmissionInterpreter._
 
       HttpRoutes.of[IO] {
         case req @ POST -> Root / "from" =>
           for {
-            t <- transmissionRef.get
-            in <- useStream(StreamSymbol(req.body))
-            out <- useStream(StreamSymbol(req.body))
-            c <- createContributor(in, out)
-            newT <- plugContributor(t, c)
-            _ <- transmissionRef.update(_ => newT)
+//            t <- transmissionRef.get
+//            in <- useStream(StreamSymbol(req.body))
+//            out <- useStream(StreamSymbol(req.body))
+//            c <- createContributor(in, out)
+//            newT <- plugContributor(t, c)
+//            _ <- transmissionRef.update(_ => newT)
 
             connection <- connectionRef.updateAndGet(_ => Connection(Option(req.body)))
             result <- IO.sleep(10.second) >> Ok(req.body)
@@ -80,12 +79,12 @@ object Server extends IOApp {
 
   def run(args: List[String]): IO[ExitCode] =
 
-    val streamInterpreter: StreamAlgebra[IO, StreamSymbol] = StreamInterpreter()
-    val contributorInterpreter: ContributorAlgebra[IO, ContributorSymbol, StreamSymbol] = ContributorInterpreter()
-    val transmissionInterpreter: TransmissionAlgebra[IO, TransmissionSymbol, ContributorSymbol] = TransmissionInterpreter()
+    given streamInterpreter: StreamAlgebra[Stream[IO, Byte]] = StreamInterpreter()
+    given contributorInterpreter: ContributorAlgebra[ContributorSymbol] = ContributorInterpreter()
+    given transmissionInterpreter: TransmissionAlgebra[TransmissionSymbol] = TransmissionInterpreter()
     import transmissionInterpreter._
+    val transmission = createTransmission()
     for {
-      transmission <- createTransmission()
       transmissionRef <- Ref[IO].of(transmission)
       connectionRef <- ServerTest.connectionRefIO
       code <- ServerTest.buildServer(connectionRef, transmissionRef).use(_ => IO.never).as(ExitCode.Success)

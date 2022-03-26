@@ -1,16 +1,18 @@
 package memmemov.clicon.interpreter.fs2
 
 import cats.effect.IO
+import fs2.Stream as Fs2Stream
 import cats.Applicative
-import memmemov.clicon.algebra.ContributorAlgebra
-//import memmemov.clicon.algebra.symbol.{Contributor as AlgebraContributor, Stream as AlgebraStream}
-import memmemov.clicon.interpreter.fs2.symbol.{Contributor, Stream}
+import memmemov.clicon.algebra.{ContributorAlgebra, StreamAlgebra}
+import memmemov.clicon.interpreter.fs2.symbol.ContributorSymbol
 
 object ContributorInterpreter:
 
-  def apply[F[_] : Applicative](): ContributorAlgebra[F, Contributor, Stream] =
+  def apply(): ContributorAlgebra[ContributorSymbol] =
     
-    new ContributorAlgebra[F, Contributor, Stream]:
+    new ContributorAlgebra[ContributorSymbol]:
 
-      def createContributor(input: Stream, output: Stream): F[Contributor] =
-        summon[Applicative[F]].pure(Contributor(input, output))
+      override type Stream = Fs2Stream[IO, Byte]
+
+      override def createContributor(input: Stream, output: Stream): ContributorSymbol =
+        ContributorSymbol(input, output)

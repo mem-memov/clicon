@@ -1,5 +1,5 @@
 package memmemov.clicon.algebra
 
-trait StreamAlgebra[F[_], Stream]:
+trait StreamAlgebra[S]:
 
-  def useStream(stream: Stream): F[Stream]
+  def useStream(stream: S): S
