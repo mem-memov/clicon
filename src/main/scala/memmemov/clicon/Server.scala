@@ -31,7 +31,7 @@ object Server extends IOApp {
     case class Connection(from: Option[EntityBody[IO]])
     val connectionRefIO: IO[Ref[IO, Connection]] = Ref[IO].of(Connection(None))
 
-    def buildRoutes[T](
+    def buildRoutes[R[_], T](
       connectionRef: Ref[IO, Connection], 
       transmissionRef: Ref[IO, R[T]]
     ): HttpRoutes[IO] = {
@@ -68,7 +68,7 @@ object Server extends IOApp {
       }
     }
 
-    def buildServer[T](connectionRef: Ref[IO, Connection], transmissionRef: Ref[IO, R[T]]) =
+    def buildServer[R[_], T](connectionRef: Ref[IO, Connection], transmissionRef: Ref[IO, R[T]]) =
       EmberServerBuilder
         .default[IO]
         .withHttp2
@@ -88,6 +88,6 @@ object Server extends IOApp {
     for {
       transmissionRef <- Ref[IO].of(transmission)
       connectionRef <- ServerTest.connectionRefIO
-      code <- ServerTest.buildServer[Transmission](connectionRef, transmissionRef).use(_ => IO.never).as(ExitCode.Success)
+      code <- ServerTest.buildServer[R, Transmission](connectionRef, transmissionRef).use(_ => IO.never).as(ExitCode.Success)
     } yield code
 }
