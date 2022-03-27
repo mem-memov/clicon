@@ -5,14 +5,16 @@ import fs2.Stream as Fs2Stream
 import cats.Applicative
 import memmemov.clicon.algebra.{ContributorAlgebra, StreamAlgebra}
 import memmemov.clicon.interpreter.fs2.symbol.ContributorSymbol
+import memmemov.clicon.interpreter.fs2.R
 
 object ContributorInterpreter:
 
-  def apply(): ContributorAlgebra[ContributorSymbol] =
+  def apply(): ContributorAlgebra[R] =
     
-    new ContributorAlgebra[ContributorSymbol]:
+    new ContributorAlgebra[R]:
 
       override type Stream = Fs2Stream[IO, Byte]
+      override type Contributor = ContributorSymbol
 
-      override def createContributor(input: Stream, output: Stream): ContributorSymbol =
-        ContributorSymbol(input, output)
+      override def createContributor(input: R[Stream], output: R[Stream]): R[Contributor] =
+        R(ContributorSymbol(input.value, output.value))

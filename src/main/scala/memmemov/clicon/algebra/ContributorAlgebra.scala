@@ -1,7 +1,8 @@
 package memmemov.clicon.algebra
 
-trait ContributorAlgebra[Contributor]:
+trait ContributorAlgebra[R[_]]:
   
   type Stream
+  type Contributor
 
-  def createContributor(input: Stream, output: Stream): Contributor
+  def createContributor(input: R[Stream], output: R[Stream]): R[Contributor]

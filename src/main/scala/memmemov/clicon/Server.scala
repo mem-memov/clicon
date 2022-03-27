@@ -20,6 +20,7 @@ import java.util.UUID
 import memmemov.clicon.algebra.*
 import memmemov.clicon.interpreter.fs2.*
 import memmemov.clicon.interpreter.fs2.symbol.{ContributorSymbol as ContributorSymbol, TransmissionSymbol as TransmissionSymbol}
+import memmemov.clicon.interpreter.fs2.R
 
 object Server extends IOApp {
 
@@ -30,17 +31,17 @@ object Server extends IOApp {
     case class Connection(from: Option[EntityBody[IO]])
     val connectionRefIO: IO[Ref[IO, Connection]] = Ref[IO].of(Connection(None))
 
-    def buildRoutes(
+    def buildRoutes[T](
       connectionRef: Ref[IO, Connection], 
-      transmissionRef: Ref[IO, TransmissionSymbol]
+      transmissionRef: Ref[IO, R[T]]
     ): HttpRoutes[IO] = {
       val dsl = Http4sDsl[IO]
       import dsl._
 
-      given streamInterpreter: StreamAlgebra[Stream[IO, Byte]] = StreamInterpreter()
-      given contributorInterpreter: ContributorAlgebra[ContributorSymbol] = ContributorInterpreter()
-      given transmissionInterpreter: TransmissionAlgebra[TransmissionSymbol] = TransmissionInterpreter()
-      import streamInterpreter._, contributorInterpreter._, transmissionInterpreter._
+//      given streamInterpreter: StreamAlgebra[Stream[IO, Byte]] = StreamInterpreter()
+//      given contributorInterpreter: ContributorAlgebra[ContributorSymbol] = ContributorInterpreter()
+//      given transmissionInterpreter: TransmissionAlgebra[TransmissionSymbol] = TransmissionInterpreter()
+//      import streamInterpreter._, contributorInterpreter._, transmissionInterpreter._
 
       HttpRoutes.of[IO] {
         case req @ POST -> Root / "from" =>
@@ -67,7 +68,7 @@ object Server extends IOApp {
       }
     }
 
-    def buildServer(connectionRef: Ref[IO, Connection], transmissionRef: Ref[IO, TransmissionSymbol]) =
+    def buildServer[T](connectionRef: Ref[IO, Connection], transmissionRef: Ref[IO, R[T]]) =
       EmberServerBuilder
         .default[IO]
         .withHttp2
@@ -79,14 +80,14 @@ object Server extends IOApp {
 
   def run(args: List[String]): IO[ExitCode] =
 
-    given streamInterpreter: StreamAlgebra[Stream[IO, Byte]] = StreamInterpreter()
-    given contributorInterpreter: ContributorAlgebra[ContributorSymbol] = ContributorInterpreter()
-    given transmissionInterpreter: TransmissionAlgebra[TransmissionSymbol] = TransmissionInterpreter()
+//    given streamInterpreter: StreamAlgebra[R] = StreamInterpreter()
+//    given contributorInterpreter: ContributorAlgebra[R] = ContributorInterpreter()
+    given transmissionInterpreter: TransmissionAlgebra[R] = TransmissionInterpreter()
     import transmissionInterpreter._
     val transmission = createTransmission()
     for {
       transmissionRef <- Ref[IO].of(transmission)
       connectionRef <- ServerTest.connectionRefIO
-      code <- ServerTest.buildServer(connectionRef, transmissionRef).use(_ => IO.never).as(ExitCode.Success)
+      code <- ServerTest.buildServer[Transmission](connectionRef, transmissionRef).use(_ => IO.never).as(ExitCode.Success)
     } yield code
 }
