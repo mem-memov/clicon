@@ -20,7 +20,7 @@ import java.util.UUID
 import memmemov.clicon.algebra.*
 import memmemov.clicon.interpreter.fs2.*
 import memmemov.clicon.interpreter.fs2.symbol.{ContributorSymbol as ContributorSymbol, TransmissionSymbol as TransmissionSymbol}
-import memmemov.clicon.interpreter.fs2.R
+import memmemov.clicon.interpreter.fs2.R as Repr
 
 object Server extends IOApp {
 
@@ -31,23 +31,22 @@ object Server extends IOApp {
     case class Connection(from: Option[EntityBody[IO]])
     val connectionRefIO: IO[Ref[IO, Connection]] = Ref[IO].of(Connection(None))
 
-    def buildRoutes[R[_], T](
+    def buildRoutes[R[_]: TransmissionAlgebra : StreamAlgebra : ContributorAlgebra, T](
       connectionRef: Ref[IO, Connection], 
       transmissionRef: Ref[IO, R[T]]
     ): HttpRoutes[IO] = {
       val dsl = Http4sDsl[IO]
       import dsl._
 
-//      given streamInterpreter: StreamAlgebra[Stream[IO, Byte]] = StreamInterpreter()
-//      given contributorInterpreter: ContributorAlgebra[ContributorSymbol] = ContributorInterpreter()
-//      given transmissionInterpreter: TransmissionAlgebra[TransmissionSymbol] = TransmissionInterpreter()
-//      import streamInterpreter._, contributorInterpreter._, transmissionInterpreter._
-
       HttpRoutes.of[IO] {
         case req @ POST -> Root / "from" =>
           for {
-//            t <- transmissionRef.get
-//            in <- useStream(StreamSymbol(req.body))
+            t <- transmissionRef.get
+            _ <- IO {
+
+              plug(t, req.body)
+            }
+//            in <- useStream(Stream(req.body))
 //            out <- useStream(StreamSymbol(req.body))
 //            c <- createContributor(in, out)
 //            newT <- plugContributor(t, c)
@@ -68,7 +67,7 @@ object Server extends IOApp {
       }
     }
 
-    def buildServer[R[_], T](connectionRef: Ref[IO, Connection], transmissionRef: Ref[IO, R[T]]) =
+    def buildServer[R[_]: TransmissionAlgebra : StreamAlgebra : ContributorAlgebra, T](connectionRef: Ref[IO, Connection], transmissionRef: Ref[IO, R[T]]) =
       EmberServerBuilder
         .default[IO]
         .withHttp2
@@ -78,11 +77,26 @@ object Server extends IOApp {
         .build
   }
 
+
+  def plug[R[_]: TransmissionAlgebra : ContributorAlgebra : StreamAlgebra, T, S](transmission: R[T], bodyStream: S) =
+    val tDsl = summon[TransmissionAlgebra[R]]
+    val cDsl = summon[ContributorAlgebra[R]]
+    val sDsl = summon[StreamAlgebra[R]]
+    import tDsl._, cDsl._, sDsl._
+    plugContributor(
+      transmission,
+      createContributor(
+        useStream(sDsl.Stream(bodyStream)),
+        useStream(sDsl.Stream(bodyStream))
+      )
+    )
+
+
   def run(args: List[String]): IO[ExitCode] =
 
-//    given streamInterpreter: StreamAlgebra[R] = StreamInterpreter()
-//    given contributorInterpreter: ContributorAlgebra[R] = ContributorInterpreter()
-    given transmissionInterpreter: TransmissionAlgebra[R] = TransmissionInterpreter()
+    given streamInterpreter: StreamAlgebra[Repr] = StreamInterpreter()
+    given contributorInterpreter: ContributorAlgebra[Repr] = ContributorInterpreter()
+    given transmissionInterpreter: TransmissionAlgebra[Repr] = TransmissionInterpreter()
     import transmissionInterpreter._
     val transmission = createTransmission()
     for {

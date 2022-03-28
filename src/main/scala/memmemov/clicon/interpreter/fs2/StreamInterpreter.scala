@@ -2,18 +2,18 @@ package memmemov.clicon.interpreter.fs2
 
 import memmemov.clicon.algebra.StreamAlgebra
 import memmemov.clicon.interpreter.fs2.R
-
 import cats.effect.IO
 import fs2.Stream as Fs2Stream
+import memmemov.clicon.interpreter.fs2.symbol.StreamSymbol
 
 object StreamInterpreter:
 
-  def apply(): StreamAlgebra[R] =
+  type Stream = Fs2Stream[IO, Byte]
 
-    new StreamAlgebra[R]:
+  def apply(): StreamAlgebra[Stream] =
 
-      override opaque type Stream = Fs2Stream[IO, Byte]
+    new StreamAlgebra[Stream]:
 
-      override def useStream(stream: Stream): R[Stream] =
-        R(stream)
+      override def useStream(stream: Stream): StreamSymbol =
+        StreamSymbol(stream)
 
