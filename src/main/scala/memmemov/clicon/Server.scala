@@ -17,10 +17,10 @@ import org.http4s.*
 import org.http4s.dsl.io.*
 
 import java.util.UUID
-import memmemov.clicon.algebra.*
+import memmemov.clicon.algebra.{symbol, *}
 import memmemov.clicon.interpreter.fs2.*
-import memmemov.clicon.interpreter.fs2.symbol.{ContributorSymbol as ContributorSymbol, TransmissionSymbol as TransmissionSymbol}
 import memmemov.clicon.interpreter.fs2.R as Repr
+import memmemov.clicon.interpreter.fs2.symbol.StreamSymbol
 
 object Server extends IOApp {
 
@@ -31,9 +31,9 @@ object Server extends IOApp {
     case class Connection(from: Option[EntityBody[IO]])
     val connectionRefIO: IO[Ref[IO, Connection]] = Ref[IO].of(Connection(None))
 
-    def buildRoutes[R[_]: TransmissionAlgebra : StreamAlgebra : ContributorAlgebra, T](
+    def buildRoutes[R[_]: TransmissionAlgebra : StreamAlgebra : ContributorAlgebra](
       connectionRef: Ref[IO, Connection], 
-      transmissionRef: Ref[IO, R[T]]
+      transmissionRef: Ref[IO, R[symbol.TransmissionSymbol]]
     ): HttpRoutes[IO] = {
       val dsl = Http4sDsl[IO]
       import dsl._
@@ -44,7 +44,7 @@ object Server extends IOApp {
             t <- transmissionRef.get
             _ <- IO {
 
-              plug(t, req.body)
+              plug(t, StreamSymbol(req.body))
             }
 //            in <- useStream(Stream(req.body))
 //            out <- useStream(StreamSymbol(req.body))
@@ -67,7 +67,7 @@ object Server extends IOApp {
       }
     }
 
-    def buildServer[R[_]: TransmissionAlgebra : StreamAlgebra : ContributorAlgebra, T](connectionRef: Ref[IO, Connection], transmissionRef: Ref[IO, R[T]]) =
+    def buildServer[R[_]: TransmissionAlgebra : StreamAlgebra : ContributorAlgebra](connectionRef: Ref[IO, Connection], transmissionRef: Ref[IO, R[symbol.TransmissionSymbol]]) =
       EmberServerBuilder
         .default[IO]
         .withHttp2
@@ -78,7 +78,12 @@ object Server extends IOApp {
   }
 
 
-  def plug[R[_]: TransmissionAlgebra : ContributorAlgebra : StreamAlgebra, T, S](transmission: R[T], bodyStream: S) =
+  def plug[
+    R[_]: TransmissionAlgebra : ContributorAlgebra : StreamAlgebra
+  ](
+    transmission: R[symbol.TransmissionSymbol],
+    stream: symbol.StreamSymbol
+  ) =
     val tDsl = summon[TransmissionAlgebra[R]]
     val cDsl = summon[ContributorAlgebra[R]]
     val sDsl = summon[StreamAlgebra[R]]
@@ -86,8 +91,8 @@ object Server extends IOApp {
     plugContributor(
       transmission,
       createContributor(
-        useStream(sDsl.Stream(bodyStream)),
-        useStream(sDsl.Stream(bodyStream))
+        useStream(stream),
+        useStream(stream)
       )
     )
 
@@ -102,6 +107,6 @@ object Server extends IOApp {
     for {
       transmissionRef <- Ref[IO].of(transmission)
       connectionRef <- ServerTest.connectionRefIO
-      code <- ServerTest.buildServer[R, Transmission](connectionRef, transmissionRef).use(_ => IO.never).as(ExitCode.Success)
+      code <- ServerTest.buildServer[R](connectionRef, transmissionRef).use(_ => IO.never).as(ExitCode.Success)
     } yield code
 }
