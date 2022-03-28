@@ -1,26 +1,25 @@
 package memmemov.clicon.interpreter.fs2
 
 import cats.Applicative
-import memmemov.clicon.algebra.{ContributorAlgebra, TransmissionAlgebra, symbol}
+import memmemov.clicon.algebra
+import memmemov.clicon.algebra.symbol
 import memmemov.clicon.interpreter.fs2.R
-import memmemov.clicon.algebra.symbol.ContributorSymbol
 import memmemov.clicon.interpreter.fs2
-import memmemov.clicon.interpreter.fs2.symbol.TransmissionSymbol
 
 object TransmissionInterpreter:
 
-  def apply(): TransmissionAlgebra[R] =
+  def apply(): algebra.Transmission[R] =
 
-    new TransmissionAlgebra[R]:
+    new algebra.Transmission[R]:
 
-      override def createTransmission(): R[symbol.TransmissionSymbol] =
-        R(TransmissionSymbol(Option.empty, Option.empty))
+      override def createTransmission(): R[symbol.Transmission] =
+        R(symbol.Transmission(Option.empty, Option.empty))
 
-      override def plugContributor(transmission: R[symbol.TransmissionSymbol], contributor: R[ContributorSymbol]): R[symbol.TransmissionSymbol] =
+      override def plugContributor(transmission: R[symbol.Transmission], contributor: R[symbol.Contributor]): R[symbol.Transmission] =
         val value = transmission.value match
-          case TransmissionSymbol(None, approver) => fs2.symbol.TransmissionSymbol(Option(contributor.value), approver)
-          case TransmissionSymbol(initiator, None) => fs2.symbol.TransmissionSymbol(initiator, Option(contributor.value))
+          case symbol.Transmission(None, approver) => symbol.Transmission(Option(contributor.value), approver)
+          case symbol.Transmission(initiator, None) => symbol.Transmission(initiator, Option(contributor.value))
           case _ => ???
         R(value)
 
-      override def unplugContributor(transmission: R[symbol.TransmissionSymbol], contributor: R[ContributorSymbol]): R[symbol.TransmissionSymbol] = ???
+      override def unplugContributor(transmission: R[symbol.Transmission], contributor: R[symbol.Contributor]): R[symbol.Transmission] = ???

@@ -1,15 +1,15 @@
 package memmemov.clicon.interpreter.fs2
 
-import memmemov.clicon.algebra.StreamAlgebra
-import memmemov.clicon.algebra.symbol as AS
+import memmemov.clicon.algebra
+import memmemov.clicon.algebra.symbol
 import memmemov.clicon.interpreter.fs2.R
 
 object StreamInterpreter:
 
-  def apply(): StreamAlgebra[R] =
+  def apply(): algebra.Stream[R] =
 
-    new StreamAlgebra[R]:
+    new algebra.Stream[R]:
 
-      override def useStream(stream: AS.StreamSymbol): R[AS.StreamSymbol] =
+      override def useStream(stream: symbol.Stream): R[symbol.Stream] =
         R(stream)
 
