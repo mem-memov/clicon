@@ -16,6 +16,8 @@ import fs2.Stream
 import org.http4s.*
 import org.http4s.dsl.io.*
 
+import cats.effect.std.Queue
+
 import java.util.UUID
 import memmemov.clicon.algebra
 import memmemov.clicon.algebra.symbol
@@ -32,9 +34,13 @@ object Server extends IOApp {
     case class Connection(from: Option[EntityBody[IO]])
     val connectionRefIO: IO[Ref[IO, Connection]] = Ref[IO].of(Connection(None))
 
+
+
     def buildRoutes[R[_]: algebra.Transmission : algebra.Stream : algebra.Contributor](
       connectionRef: Ref[IO, Connection], 
-      transmissionRef: Ref[IO, R[symbol.Transmission]]
+      transmissionRef: Ref[IO, R[symbol.Transmission]],
+      forwardQueue: Queue[IO, Option[Byte]],
+      forwardStream: Stream[IO, Byte]
     ): HttpRoutes[IO] = {
       val dsl = Http4sDsl[IO]
       import dsl._
@@ -43,28 +49,35 @@ object Server extends IOApp {
         case req @ POST -> Root / "from" =>
           for {
             t <- transmissionRef.get
-            _ <- IO {
+            newT <- IO(plug(t, StreamSymbol(Stream.never), StreamSymbol(req.body)))
+            _ <- transmissionRef.update(_ => newT)
 
-              plug(t, StreamSymbol(req.body))
-            }
-//            in <- useStream(Stream(req.body))
-//            out <- useStream(StreamSymbol(req.body))
-//            c <- createContributor(in, out)
-//            newT <- plugContributor(t, c)
-//            _ <- transmissionRef.update(_ => newT)
+            _ <- IO(req.body.drain.map(byte => Some(byte)).map(forwardQueue.offer))
 
-            connection <- connectionRef.updateAndGet(_ => Connection(Option(req.body)))
-            result <- IO.sleep(10.second) >> Ok(req.body)
+            result <- IO.sleep(5.second) >> Ok(req.body)
+
+//            connection <- connectionRef.updateAndGet(_ => Connection(Option(req.body)))
+//            result <- IO.sleep(10.second) >> Ok(req.body)
           } yield result
 
         case req @ POST -> Root / "to" =>
-          for {
-            connection <- connectionRef.get
-            result <- connection.from match {
-              case None => Ok(seconds.map(_ => "NOTHING "))
-              case Some(bodyStream) => Ok(bodyStream)
-            }
-          } yield result
+
+//          for {
+//            t <- transmissionRef.get
+//            newT <- IO(plug(t, StreamSymbol(Stream.never), StreamSymbol(req.body)))
+//            _ <- transmissionRef.update(_ => newT)
+
+//            _ <- IO(println(forwardStream))
+//            result <- Ok(forwardStream)
+//            result <- Ok(seconds.map(_ => "NOTHING "))
+
+//            connection <- connectionRef.get
+//            result <- connection.from match {
+//              case None => Ok(seconds.map(_ => "NOTHING "))
+//              case Some(bodyStream) => Ok(bodyStream)
+//            }
+//          } yield ()
+          Ok(seconds.map(_ => "NOTHING "))
       }
     }
 
@@ -72,14 +85,16 @@ object Server extends IOApp {
       R[_]: algebra.Transmission : algebra.Stream : algebra.Contributor
     ](
       connectionRef: Ref[IO, Connection],
-      transmissionRef: Ref[IO, R[symbol.Transmission]]
+      transmissionRef: Ref[IO, R[symbol.Transmission]],
+      forwardQueue: Queue[IO, Option[Byte]],
+      forwardStream: Stream[IO, Byte]
     ) =
       EmberServerBuilder
         .default[IO]
         .withHttp2
         .withHost(ipv4"0.0.0.0")
         .withPort(port"8080")
-        .withHttpApp(buildRoutes(connectionRef, transmissionRef).orNotFound)
+        .withHttpApp(buildRoutes(connectionRef, transmissionRef, forwardQueue, forwardStream).orNotFound)
         .build
   }
 
@@ -88,17 +103,19 @@ object Server extends IOApp {
     R[_]: algebra.Transmission : algebra.Contributor : algebra.Stream
   ](
     transmission: R[symbol.Transmission],
-    stream: symbol.Stream
+    input: symbol.Stream,
+    output: symbol.Stream
   ) =
     val tDsl = summon[algebra.Transmission[R]]
     val cDsl = summon[algebra.Contributor[R]]
     val sDsl = summon[algebra.Stream[R]]
     import tDsl._, cDsl._, sDsl._
+
     plugContributor(
       transmission,
       createContributor(
-        useStream(stream),
-        useStream(stream)
+        useStream(input),
+        useStream(output)
       )
     )
 
@@ -112,7 +129,11 @@ object Server extends IOApp {
     val transmission = createTransmission()
     for {
       transmissionRef <- Ref[IO].of(transmission)
+
+      forwardQueue <- Queue.unbounded[IO, Option[Byte]]
+      forwardStream <- IO(Stream.fromQueueNoneTerminated(forwardQueue))
+
       connectionRef <- ServerTest.connectionRefIO
-      code <- ServerTest.buildServer[R](connectionRef, transmissionRef).use(_ => IO.never).as(ExitCode.Success)
+      code <- ServerTest.buildServer[R](connectionRef, transmissionRef, forwardQueue, forwardStream).use(_ => IO.never).as(ExitCode.Success)
     } yield code
 }
