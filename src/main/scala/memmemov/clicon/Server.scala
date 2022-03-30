@@ -58,13 +58,13 @@ object Server extends IOApp {
             fw <- IO(req.body.map(byte => Option(byte)).evalTap{ ob =>
               for {
                 _ <- forwardQueue.offer(ob)
-                _ <- IO(println(s"[from] $ob"))
+                _ <- IO(println(s"[from] sending $ob"))
               } yield ()
             }.collect {
               case Some(v) => v
             })
 
-            result <- Ok(fw)
+            result <- Ok(backwardStream)
 
 //            connection <- connectionRef.updateAndGet(_ => Connection(Option(req.body)))
 //            result <- IO.sleep(10.second) >> Ok(req.body)
@@ -77,14 +77,16 @@ object Server extends IOApp {
 //            _ <- transmissionRef.update(_ => newT)
 
             _ <- IO(println("TO started"))
-//            _ <- IO(req.body.map(byte => Option(byte)).evalTap{ ob =>
-//              for {
-//                _ <- backwardQueue.offer(ob)
-//                _ <- IO(println(s"[to] $ob"))
-//              } yield ()
-//            })
+            bw <- IO(req.body.map(byte => Option(byte)).evalTap{ ob =>
+              for {
+                _ <- backwardQueue.offer(ob)
+                _ <- IO(println(s"[to] sending $ob"))
+              } yield ()
+            }.collect {
+              case Some(v) => v
+            })
 
-            result <- Ok(forwardStream)
+            result <- Ok(bw)
 
 //            connection <- connectionRef.get
 //            result <- connection.from match {
@@ -157,7 +159,7 @@ object Server extends IOApp {
       forwardQueue <- Queue.unbounded[IO, Option[Byte]]
       forwardStream <- IO(Stream.fromQueueNoneTerminated(forwardQueue))
       backwardQueue <- Queue.unbounded[IO, Option[Byte]]
-      backwardStream <- IO(Stream.fromQueueNoneTerminated(forwardQueue))
+      backwardStream <- IO(Stream.fromQueueNoneTerminated(backwardQueue))
 
       connectionRef <- ServerTest.connectionRefIO
       code <- ServerTest.buildServer[R](
