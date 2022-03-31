@@ -25,6 +25,8 @@ import memmemov.clicon.interpreter.fs2.*
 import memmemov.clicon.interpreter.fs2.R as Repr
 import memmemov.clicon.interpreter.fs2.symbol.StreamSymbol
 
+
+
 object Server extends IOApp {
 
   object ServerTest {
@@ -33,7 +35,6 @@ object Server extends IOApp {
 
     case class Connection(from: Option[EntityBody[IO]])
     val connectionRefIO: IO[Ref[IO, Connection]] = Ref[IO].of(Connection(None))
-
 
 
     def buildRoutes[R[_]: algebra.Transmission : algebra.Stream : algebra.Contributor](
@@ -54,16 +55,8 @@ object Server extends IOApp {
             newT <- IO(plug(t, StreamSymbol(Stream.never), StreamSymbol(req.body)))
             _ <- transmissionRef.update(_ => newT)
 
-            _ <- IO(println("FROM started"))
-            fw <- IO(req.body.map(byte => Option(byte)).evalTap{ ob =>
-              for {
-                _ <- forwardQueue.offer(ob)
-                _ <- IO(println(s"[from] sending $ob"))
-              } yield ()
-            }.collect {
-              case Some(v) => v
-            })
-
+            readBodyFiber  <- readBodyStream("from", req.body, forwardQueue).start
+            _ <- readBodyFiber.join
             result <- Ok(backwardStream)
 
 //            connection <- connectionRef.updateAndGet(_ => Connection(Option(req.body)))
@@ -76,17 +69,9 @@ object Server extends IOApp {
 //            newT <- IO(plug(t, StreamSymbol(Stream.never), StreamSymbol(req.body)))
 //            _ <- transmissionRef.update(_ => newT)
 
-            _ <- IO(println("TO started"))
-            bw <- IO(req.body.map(byte => Option(byte)).evalTap{ ob =>
-              for {
-                _ <- backwardQueue.offer(ob)
-                _ <- IO(println(s"[to] sending $ob"))
-              } yield ()
-            }.collect {
-              case Some(v) => v
-            })
-
-            result <- Ok(bw)
+            readBodyFiber <- readBodyStream("to", req.body, backwardQueue).start
+            _ <- readBodyFiber.join
+            result <- Ok(forwardStream)
 
 //            connection <- connectionRef.get
 //            result <- connection.from match {
@@ -124,6 +109,22 @@ object Server extends IOApp {
         .build
   }
 
+  def readBodyStream(
+    origin: String,
+    body: Stream[IO, Byte],
+    queue: Queue[IO, Option[Byte]]
+  ): IO[Unit] = for {
+    _ <- IO(println(s"[$origin] started"))
+    bw <- body.map(byte => Option(byte)).evalTap{ ob =>
+      for {
+        _ <- queue.offer(ob)
+        _ <- IO(println(s"[$origin] sending $ob"))
+      } yield ()
+    }.collect {
+      case Some(v) => v
+    }.compile.drain
+    _ <- IO(println(s"[$origin] sent"))
+  } yield ()
 
   def plug[
     R[_]: algebra.Transmission : algebra.Contributor : algebra.Stream
